@@ -33,6 +33,7 @@ and jobs or called from within another environment (e.g. a Jupyter or
 Zeppelin notebook).
 """
 
+import os
 from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
@@ -64,17 +65,26 @@ def main():
 
 
 def extract_data(spark):
-    """Load data from Parquet file format.
+    """Load data from Parquet or JSON file format.
 
     :param spark: Spark session object.
     :return: Spark DataFrame.
     """
-    df = (
-        spark
-        .read
-        .parquet('tests/test_data/employees'))
-
-    return df
+    scenario = os.environ.get('SCENARIO', '')
+    
+    if scenario == 'S2_partial_write':
+        # Handle scenario with corrupt JSON data
+        # Read JSON with DROPMALFORMED mode to skip corrupt records
+        input_path = os.environ.get('INPUT_PATH', 'tests/test_data/employees.json')
+        df = spark.read.option('mode', 'DROPMALFORMED').json(input_path)
+        return df
+    else:
+        # Default: read from Parquet
+        df = (
+            spark
+            .read
+            .parquet('tests/test_data/employees'))
+        return df
 
 
 def transform_data(df, steps_per_floor_):
