@@ -33,6 +33,7 @@ and jobs or called from within another environment (e.g. a Jupyter or
 Zeppelin notebook).
 """
 
+import os
 from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
@@ -69,10 +70,21 @@ def extract_data(spark):
     :param spark: Spark session object.
     :return: Spark DataFrame.
     """
-    df = (
-        spark
-        .read
-        .parquet('tests/test_data/employees'))
+    scenario = os.environ.get('SCENARIO', '')
+    
+    if scenario == 'S2_partial_write':
+        # Handle corrupted JSON files by dropping malformed records
+        input_path = os.environ.get('INPUT_PATH', 'tests/test_data/employees')
+        df = (
+            spark
+            .read
+            .option('mode', 'DROPMALFORMED')
+            .json(input_path))
+    else:
+        df = (
+            spark
+            .read
+            .parquet('tests/test_data/employees'))
 
     return df
 
