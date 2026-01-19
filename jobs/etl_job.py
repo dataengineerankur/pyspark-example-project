@@ -33,6 +33,7 @@ and jobs or called from within another environment (e.g. a Jupyter or
 Zeppelin notebook).
 """
 
+import os
 from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
@@ -52,9 +53,12 @@ def main():
     # log that main ETL job is starting
     log.warn('etl_job is up-and-running')
 
+    # get scenario from environment variable
+    scenario = os.environ.get('SCENARIO', None)
+    
     # execute ETL pipeline
     data = extract_data(spark)
-    data_transformed = transform_data(data, config['steps_per_floor'])
+    data_transformed = transform_data(data, config['steps_per_floor'], scenario=scenario)
     load_data(data_transformed)
 
     # log the success and terminate Spark application
@@ -77,14 +81,20 @@ def extract_data(spark):
     return df
 
 
-def transform_data(df, steps_per_floor_):
+def transform_data(df, steps_per_floor_, scenario=None):
     """Transform original dataset.
 
     :param df: Input DataFrame.
     :param steps_per_floor_: The number of steps per-floor at 43 Tanner
         Street.
+    :param scenario: Optional scenario name for test harness.
     :return: Transformed DataFrame.
     """
+    # Handle S4_duplicate_events scenario by deduplicating records
+    if scenario == 'S4_duplicate_events':
+        # Deduplicate based on id (event_id), keeping the first occurrence
+        df = df.dropDuplicates(['id'])
+    
     df_transformed = (
         df
         .select(
