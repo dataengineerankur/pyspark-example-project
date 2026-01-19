@@ -55,7 +55,20 @@ def main():
     # execute ETL pipeline
     data = extract_data(spark)
     data_transformed = transform_data(data, config['steps_per_floor'])
-    load_data(data_transformed)
+    
+    # Get output path from config or environment variable
+    import os
+    from datetime import datetime
+    output_path = os.environ.get('OUTPUT_PATH')
+    if not output_path:
+        output_path = config.get('output_path', 'loaded_data')
+    
+    # For date-based paths, ensure we use current date
+    if 'date_suffix' in config and config['date_suffix']:
+        date_str = datetime.now().strftime('%Y-%m-%d')
+        output_path = f"{output_path}/{date_str}"
+    
+    load_data(data_transformed, output_path)
 
     # log the success and terminate Spark application
     log.warn('test_etl_job is finished')
@@ -98,16 +111,17 @@ def transform_data(df, steps_per_floor_):
     return df_transformed
 
 
-def load_data(df):
+def load_data(df, output_path='loaded_data'):
     """Collect data locally and write to CSV.
 
     :param df: DataFrame to print.
+    :param output_path: Path to write the output data.
     :return: None
     """
     (df
      .coalesce(1)
      .write
-     .csv('loaded_data', mode='overwrite', header=True))
+     .csv(output_path, mode='overwrite', header=True))
     return None
 
 
