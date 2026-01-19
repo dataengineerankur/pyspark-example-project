@@ -52,9 +52,14 @@ def main():
     # log that main ETL job is starting
     log.warn('etl_job is up-and-running')
 
+    # Handle case when config is None
+    if config is None:
+        config = {}
+    
     # execute ETL pipeline
     data = extract_data(spark)
-    data_transformed = transform_data(data, config['steps_per_floor'])
+    steps_per_floor = config.get('steps_per_floor', 21)
+    data_transformed = transform_data(data, steps_per_floor)
     
     # Get output path from config or environment variable
     import os
@@ -64,7 +69,7 @@ def main():
         output_path = config.get('output_path', 'loaded_data')
     
     # For date-based paths, ensure we use current date
-    if 'date_suffix' in config and config['date_suffix']:
+    if config.get('date_suffix', False):
         date_str = datetime.now().strftime('%Y-%m-%d')
         output_path = f"{output_path}/{date_str}"
     
