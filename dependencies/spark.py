@@ -58,6 +58,19 @@ def start_spark(app_name='my_spark_app', master='local[*]', jar_packages=[],
     # detect execution environment
     flag_repl = not(hasattr(__main__, '__file__'))
     flag_debug = 'DEBUG' in environ.keys()
+    
+    # check for scenario-specific configurations
+    scenario = environ.get('SCENARIO', '')
+    if scenario == 'S5_skew_performance':
+        # Enable AQE and skew join optimization for data skew scenarios
+        spark_config.update({
+            'spark.sql.adaptive.enabled': 'true',
+            'spark.sql.adaptive.skewJoin.enabled': 'true',
+            'spark.sql.adaptive.skewJoin.skewedPartitionFactor': '5',
+            'spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes': '256MB',
+            'spark.sql.adaptive.coalescePartitions.enabled': 'true',
+            'spark.sql.shuffle.partitions': '200'
+        })
 
     if not (flag_repl or flag_debug):
         # get Spark session factory
@@ -65,6 +78,10 @@ def start_spark(app_name='my_spark_app', master='local[*]', jar_packages=[],
             SparkSession
             .builder
             .appName(app_name))
+        
+        # apply scenario-specific configs even in cluster mode
+        for key, val in spark_config.items():
+            spark_builder.config(key, val)
     else:
         # get Spark session factory
         spark_builder = (
